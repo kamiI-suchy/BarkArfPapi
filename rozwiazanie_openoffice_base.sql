@@ -1,5 +1,13 @@
--- Rozwiązanie zadań SQL (OpenOffice Base)
--- Nazwy tabel i pól zgodne z treścią zadania (znaki diakrytyczne zamienione na ASCII).
+-- Rozwiązanie zadań SQL (OpenOffice / LibreOffice Base)
+-- Wersja poprawiona tak, żeby wykonywała się "od zera" i żeby SELECT-y działały.
+-- Najważniejsze poprawki:
+--  - literały dat: {d 'YYYY-MM-DD'} (zamiast DATE 'YYYY-MM-DD')
+--  - brak cudzysłowów w nazwach tabel/kolumn w SELECT (żeby nie było problemu z wielkością liter)
+--  - zgodność z częstymi ograniczeniami Base: brak DROP COLUMN (Zadanie 4 zrealizowane przez tabelę zastępczą)
+--  - YEAR() zastąpione przez EXTRACT(YEAR FROM ...)
+--
+-- Uwaga: skrypt zakłada pustą bazę. Jeśli tabele już istnieją, usuń je ręcznie w GUI Base
+-- albo dodaj DROP TABLE w odpowiedniej kolejności (zależnie od silnika może wymagać CASCADE).
 
 -- ============================================================
 -- Zadanie 1: CREATE TABLE (bez pól Premia i Specjalizacja)
@@ -60,28 +68,28 @@ INSERT INTO Dzialy (Nazwa, Lokalizacja, Szef_dzialu) VALUES ('Administracja', 'W
 INSERT INTO Dzialy (Nazwa, Lokalizacja, Szef_dzialu) VALUES ('Marketing', 'Gdansk', NULL);
 
 INSERT INTO Zespoly (Nazwa_zespolu, Data_powolania, Budzet, Kierownik, Nr_dzialu, Specjalizacja)
-VALUES ('Backend', DATE '2018-03-01', 25000.00, NULL, 1, 'Systemy serwerowe');
+VALUES ('Backend', {d '2018-03-01'}, 25000.00, NULL, 1, 'Systemy serwerowe');
 INSERT INTO Zespoly (Nazwa_zespolu, Data_powolania, Budzet, Kierownik, Nr_dzialu, Specjalizacja)
-VALUES ('Frontend', DATE '2020-06-15', 12000.00, NULL, 1, 'Interfejsy webowe');
+VALUES ('Frontend', {d '2020-06-15'}, 12000.00, NULL, 1, 'Interfejsy webowe');
 INSERT INTO Zespoly (Nazwa_zespolu, Data_powolania, Budzet, Kierownik, Nr_dzialu, Specjalizacja)
-VALUES ('HR-Operacje', DATE '2017-01-10', 8000.00, NULL, 2, 'Kadry');
+VALUES ('HR-Operacje', {d '2017-01-10'}, 8000.00, NULL, 2, 'Kadry');
 INSERT INTO Zespoly (Nazwa_zespolu, Data_powolania, Budzet, Kierownik, Nr_dzialu, Specjalizacja)
-VALUES ('Samodzielni', DATE '2022-02-01', 4000.00, NULL, NULL, 'Eksperci niezalezni');
+VALUES ('Samodzielni', {d '2022-02-01'}, 4000.00, NULL, NULL, 'Eksperci niezalezni');
 
 INSERT INTO Pracownicy (Imie, Nazwisko, Stanowisko, Zarobki, Data_zatrudnienia, Nr_zespolu, Premia)
-VALUES ('Jan', 'Kowalski', 'kierownik zespolu', 8200.00, DATE '2016-02-12', 1, 800.00);
+VALUES ('Jan', 'Kowalski', 'kierownik zespolu', 8200.00, {d '2016-02-12'}, 1, 800.00);
 INSERT INTO Pracownicy (Imie, Nazwisko, Stanowisko, Zarobki, Data_zatrudnienia, Nr_zespolu, Premia)
-VALUES ('Anna', 'Nowak', 'kierownik zespolu', 7800.00, DATE '2022-01-15', 2, 600.00);
+VALUES ('Anna', 'Nowak', 'kierownik zespolu', 7800.00, {d '2022-01-15'}, 2, 600.00);
 INSERT INTO Pracownicy (Imie, Nazwisko, Stanowisko, Zarobki, Data_zatrudnienia, Nr_zespolu, Premia)
-VALUES ('Piotr', 'Zielinski', 'programista', 5600.00, DATE '2019-07-22', 1, 400.00);
+VALUES ('Piotr', 'Zielinski', 'programista', 5600.00, {d '2019-07-22'}, 1, 400.00);
 INSERT INTO Pracownicy (Imie, Nazwisko, Stanowisko, Zarobki, Data_zatrudnienia, Nr_zespolu, Premia)
-VALUES ('Maria', 'Wisniewska', 'kierownik zespolu', 7600.00, DATE '2015-11-03', 3, 700.00);
+VALUES ('Maria', 'Wisniewska', 'kierownik zespolu', 7600.00, {d '2015-11-03'}, 3, 700.00);
 INSERT INTO Pracownicy (Imie, Nazwisko, Stanowisko, Zarobki, Data_zatrudnienia, Nr_zespolu, Premia)
-VALUES ('Tomasz', 'Lewandowski', 'analityk', 4900.00, DATE '2021-09-20', 2, 300.00);
+VALUES ('Tomasz', 'Lewandowski', 'analityk', 4900.00, {d '2021-09-20'}, 2, 300.00);
 INSERT INTO Pracownicy (Imie, Nazwisko, Stanowisko, Zarobki, Data_zatrudnienia, Nr_zespolu, Premia)
-VALUES ('Karolina', 'Wojcik', 'specjalista HR', 4700.00, DATE '2014-05-18', 3, 250.00);
+VALUES ('Karolina', 'Wojcik', 'specjalista HR', 4700.00, {d '2014-05-18'}, 3, 250.00);
 INSERT INTO Pracownicy (Imie, Nazwisko, Stanowisko, Zarobki, Data_zatrudnienia, Nr_zespolu, Premia)
-VALUES ('Pawel', 'Kaczmarek', 'konsultant', 5100.00, DATE '2023-04-02', NULL, 150.00);
+VALUES ('Pawel', 'Kaczmarek', 'konsultant', 5100.00, {d '2023-04-02'}, NULL, 150.00);
 
 -- Ustawienie kierowników zespołów
 UPDATE Zespoly SET Kierownik = 1 WHERE Nr_zespolu = 1;
@@ -99,7 +107,35 @@ UPDATE Dzialy SET Szef_dzialu = 2 WHERE Nr_dzialu = 3;
 -- Zadanie 4: Usunięcie pola Specjalizacja z tabeli Zespoly
 -- ============================================================
 
-ALTER TABLE Zespoly DROP COLUMN Specjalizacja;
+-- W Base (zależnie od silnika/sterownika) DROP COLUMN bywa niedostępne.
+-- Najbardziej przenośny sposób: tworzymy tabelę zastępczą bez kolumny Specjalizacja,
+-- kopiujemy dane i podmieniamy tabelę.
+
+CREATE TABLE Zespoly_tmp (
+    Nr_zespolu INTEGER PRIMARY KEY,
+    Nazwa_zespolu VARCHAR(100) NOT NULL UNIQUE,
+    Data_powolania DATE NOT NULL,
+    Budzet DECIMAL(12,2) NOT NULL,
+    Kierownik INTEGER,
+    Nr_dzialu INTEGER,
+    CONSTRAINT FK_Zespoly_tmp_Dzialy FOREIGN KEY (Nr_dzialu) REFERENCES Dzialy(Nr_dzialu),
+    CONSTRAINT FK_Zespoly_tmp_Kierownik FOREIGN KEY (Kierownik) REFERENCES Pracownicy(Nr_prac)
+);
+
+INSERT INTO Zespoly_tmp (Nr_zespolu, Nazwa_zespolu, Data_powolania, Budzet, Kierownik, Nr_dzialu)
+SELECT Nr_zespolu, Nazwa_zespolu, Data_powolania, Budzet, Kierownik, Nr_dzialu
+FROM Zespoly;
+
+-- Najpierw usuwamy zależność z Pracownicy -> Zespoly (FK)
+ALTER TABLE Pracownicy DROP CONSTRAINT FK_Pracownicy_Zespoly;
+
+DROP TABLE Zespoly;
+
+ALTER TABLE Zespoly_tmp RENAME TO Zespoly;
+
+-- Odtwarzamy FK z Pracownicy do Zespoly
+ALTER TABLE Pracownicy
+    ADD CONSTRAINT FK_Pracownicy_Zespoly FOREIGN KEY (Nr_zespolu) REFERENCES Zespoly(Nr_zespolu);
 
 
 -- ============================================================
@@ -149,7 +185,7 @@ WHERE d.Nr_dzialu IS NULL;
 SELECT p.Nazwisko, p.Zarobki
 FROM Pracownicy p
 JOIN Zespoly z ON z.Kierownik = p.Nr_prac
-WHERE YEAR(p.Data_zatrudnienia) > 2001;
+WHERE EXTRACT(YEAR FROM p.Data_zatrudnienia) > 2001;
 
 -- 12) Nazwiska osób będących jednocześnie kierownikiem zespołu i szefem działu
 SELECT DISTINCT p.Nazwisko
